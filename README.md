@@ -12,26 +12,26 @@ Repositorio base para desarrollar plugins para **VLA System**.
 ## Inicio rápido
 
 ```bash
-# 1. Clonar / descargar este template
-git clone <url-de-este-repo> my-plugin
+# 1. Clonar este template (junto al core, en la misma carpeta padre)
+git clone https://github.com/aguisoft/vla-plugin-template.git my-plugin
 cd my-plugin
-
-# 2. Instalar dependencias (incluye @vla/plugin-sdk)
 npm install
 
-# 3. Editar el manifiesto
-#    → cambia name, version, description, route, permissions, etc.
-nano plugin.json
+# 2. Editar el manifiesto
+#    → cambia name, version, description, route, permissions
+nano plugin.json   # o abre en tu editor
 
-# 4. Desarrollar
-#    → edita src/index.ts
-#    → compila en modo watch para ver errores al instante
-npm run build:watch
+# 3. Desarrollar con el core local
+#    Terminal A — core corriendo:
+#      cd ../vla-system && npm run dev -w @vla/api
+#
+#    Terminal B — compilar + instalar en el core:
+npm run dev          # compila y copia al core → luego reinicia el core
+npm run build:watch  # solo watch, sin instalar (útil mientras editas)
 
-# 5. Cuando estés listo, empaquetar y subir
-npm run release
-#    → genera  my-plugin-1.0.0.vla.zip
-#    → ve al panel Admin → Módulos → Seleccionar .vla.zip
+# 4. Publicar en producción
+npm run release      # genera my-plugin-1.0.0.vla.zip
+# subir desde Admin → Módulos
 ```
 
 ---
