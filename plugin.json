@@ -1,0 +1,21 @@
+{
+  "name": "my-plugin",
+  "version": "1.0.0",
+  "description": "Descripción de mi plugin",
+  "author": "Tu Nombre / Equipo",
+  "vlaMinVersion": "1.0.0",
+  "route": "/dashboard/my-plugin",
+  "icon": "star",
+  "adminOnly": false,
+  "permissions": [
+    "read:users"
+  ],
+  "hooks": {
+    "listens": [
+      "office.user.checked_in"
+    ],
+    "emits": [
+      "my-plugin.item.created"
+    ]
+  }
+}
