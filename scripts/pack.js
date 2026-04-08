@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * Empaqueta el plugin compilado en un archivo .vla.zip listo para subir.
+ * Empaqueta el plugin (backend + frontend opcional) en un .vla.zip.
  *
- * Uso:  node scripts/pack.js
- *       npm run pack          (después de compilar)
- *       npm run release       (compila + empaqueta en un solo paso)
+ * Estructura del zip:
+ *   plugin.json     — manifest
+ *   dist/           — backend compilado (tsc)
+ *   ui/             — frontend compilado (vite build), si existe frontend/dist/
  *
- * Genera:  <name>-<version>.vla.zip  en la raíz del proyecto.
+ * Uso:  npm run release   →  compila backend + frontend + empaqueta
  */
 
 const fs = require('fs');
@@ -23,47 +24,55 @@ if (!fs.existsSync(manifestPath)) {
 }
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
 
-// ── 2. Verificar que dist/index.js existe ─────────────────────────────────────
-const entryPoint = path.join(root, 'dist', 'index.js');
-if (!fs.existsSync(entryPoint)) {
+// ── 2. Verificar dist/index.js ─────────────────────────────────────────────────
+if (!fs.existsSync(path.join(root, 'dist', 'index.js'))) {
   console.error('ERROR: dist/index.js no encontrado. Ejecuta "npm run build" primero.');
   process.exit(1);
 }
 
-// ── 3. Crear el zip ───────────────────────────────────────────────────────────
+// ── 3. Copiar frontend/dist → ui/ si existe ────────────────────────────────────
+const frontendDist = path.join(root, 'frontend', 'dist');
+const uiDir        = path.join(root, 'ui');
+const hasFrontend  = fs.existsSync(frontendDist);
+
+if (hasFrontend) {
+  if (fs.existsSync(uiDir)) fs.rmSync(uiDir, { recursive: true });
+  fs.cpSync(frontendDist, uiDir, { recursive: true });
+  console.log('✓ Frontend copiado → ui/');
+} else {
+  console.log('ℹ  Sin frontend (frontend/dist/ no encontrado) — solo backend.');
+}
+
+// ── 4. Crear el zip ───────────────────────────────────────────────────────────
 const zipName = `${manifest.name}-${manifest.version}.vla.zip`;
 const zipPath = path.join(root, zipName);
-
-// Eliminar zip anterior si existe
 if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 
-// Usar el módulo nativo 'zip' si está disponible, sino intentar con Node
+const filesToZip = hasFrontend ? 'plugin.json dist/ ui/' : 'plugin.json dist/';
+
 try {
-  execSync(`cd "${root}" && zip -r "${zipName}" plugin.json dist/`, { stdio: 'pipe' });
+  execSync(`cd "${root}" && zip -r "${zipName}" ${filesToZip}`, { stdio: 'pipe' });
 } catch {
-  // Fallback: usar el módulo adm-zip si zip no está disponible (Windows)
   try {
     const AdmZip = require('adm-zip');
     const zip = new AdmZip();
     zip.addLocalFile(manifestPath);
     zip.addLocalFolder(path.join(root, 'dist'), 'dist');
+    if (hasFrontend) zip.addLocalFolder(uiDir, 'ui');
     zip.writeZip(zipPath);
   } catch {
-    console.error('ERROR: No se pudo crear el zip. Instala "zip" (Linux/Mac) o "adm-zip" (npm install adm-zip).');
+    console.error('ERROR: No se pudo crear el zip. Instala "zip" o "adm-zip".');
     process.exit(1);
   }
 }
 
-// ── 4. Resumen ────────────────────────────────────────────────────────────────
-const stats = fs.statSync(zipPath);
-const kb = (stats.size / 1024).toFixed(1);
+// ── 5. Limpiar ui/ temporal ───────────────────────────────────────────────────
+if (hasFrontend && fs.existsSync(uiDir)) fs.rmSync(uiDir, { recursive: true });
 
+// ── 6. Resumen ────────────────────────────────────────────────────────────────
+const kb = (fs.statSync(zipPath).size / 1024).toFixed(1);
 console.log('');
-console.log(`✓ Plugin empaquetado: ${zipName}  (${kb} KB)`);
+console.log(`✓ Plugin empaquetado: ${zipName}  (${kb} KB)${hasFrontend ? '  [backend + frontend]' : '  [solo backend]'}`);
 console.log('');
-console.log('  Próximos pasos:');
-console.log('  1. Abre el panel admin de VLA → Módulos');
-console.log('  2. Haz clic en "Seleccionar .vla.zip"');
-console.log(`  3. Selecciona  ${zipName}`);
-console.log('  4. El servidor reiniciará y cargará el plugin automáticamente');
+console.log('  → Abre /dashboard/admin → sube el .vla.zip → listo');
 console.log('');

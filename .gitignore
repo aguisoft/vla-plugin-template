@@ -1,3 +1,5 @@
 node_modules/
 /dist/
+/ui/
 *.vla.zip
+frontend/dist/
