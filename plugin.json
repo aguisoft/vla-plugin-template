@@ -7,15 +7,25 @@
   "route": "/dashboard/my-plugin",
   "icon": "star",
   "adminOnly": false,
-  "permissions": [
-    "read:users"
-  ],
-  "hooks": {
-    "listens": [
-      "office.user.checked_in"
-    ],
-    "emits": [
-      "my-plugin.item.created"
+  "accessPermissions": ["my-plugin.read"],
+  "requires": [],
+  "permissions": ["read:users"],
+  "settings": {
+    "sections": [
+      {
+        "title": "General",
+        "description": "Configuración básica del plugin",
+        "fields": [
+          { "key": "apiEndpoint", "type": "url", "label": "API Endpoint", "description": "URL del servicio externo", "required": false, "placeholder": "https://api.example.com" },
+          { "key": "apiKey", "type": "secret", "label": "API Key", "description": "Clave de autenticación", "required": false },
+          { "key": "maxResults", "type": "number", "label": "Máximo de resultados", "default": 50, "min": 1, "max": 500 },
+          { "key": "enabled", "type": "boolean", "label": "Habilitar sincronización", "default": false }
+        ]
+      }
     ]
+  },
+  "hooks": {
+    "listens": ["office.user.checked_in"],
+    "emits": ["my-plugin.item.created"]
   }
 }

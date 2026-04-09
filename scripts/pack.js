@@ -48,7 +48,11 @@ const zipName = `${manifest.name}-${manifest.version}.vla.zip`;
 const zipPath = path.join(root, zipName);
 if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 
-const filesToZip = hasFrontend ? 'plugin.json dist/ ui/' : 'plugin.json dist/';
+const hasMigrations = fs.existsSync(path.join(root, 'migrations'));
+const parts = ['plugin.json', 'dist/', 'vendor/'];
+if (hasFrontend) parts.push('ui/');
+if (hasMigrations) parts.push('migrations/');
+const filesToZip = parts.join(' ');
 
 try {
   execSync(`cd "${root}" && zip -r "${zipName}" ${filesToZip}`, { stdio: 'pipe' });
@@ -58,7 +62,9 @@ try {
     const zip = new AdmZip();
     zip.addLocalFile(manifestPath);
     zip.addLocalFolder(path.join(root, 'dist'), 'dist');
+    zip.addLocalFolder(path.join(root, 'vendor'), 'vendor');
     if (hasFrontend) zip.addLocalFolder(uiDir, 'ui');
+    if (hasMigrations) zip.addLocalFolder(path.join(root, 'migrations'), 'migrations');
     zip.writeZip(zipPath);
   } catch {
     console.error('ERROR: No se pudo crear el zip. Instala "zip" o "adm-zip".');

@@ -10,8 +10,12 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@vla/plugin-sdk": ["./vendor/plugin-sdk/dist"]
+    }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "vendor"]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }

@@ -1,14 +1,17 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
-// ─── IMPORTANTE ───────────────────────────────────────────────────────────────
-// Cambia "my-plugin" por el `name` de tu plugin.json
-// El `base` debe coincidir con la ruta donde el core servirá el frontend:
-//   /api/v1/p/<nombre-plugin>/ui/
-// ─────────────────────────────────────────────────────────────────────────────
+// Reads plugin name from plugin.json automatically — no manual config needed
+const pluginJson = JSON.parse(
+  readFileSync(resolve(__dirname, '../plugin.json'), 'utf-8')
+);
+const pluginName: string = pluginJson.name;
+
 export default defineConfig({
   plugins: [react()],
-  base: '/api/v1/p/my-plugin/ui/',
+  base: `/api/v1/p/${pluginName}/ui/`,
   build: {
     outDir: 'dist',
     emptyOutDir: true,

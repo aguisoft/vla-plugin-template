@@ -2,259 +2,297 @@
 
 Repositorio base para desarrollar plugins para **VLA System**.
 
-## Requisitos
-
-- Node.js 18+
-- `zip` instalado en el sistema (Linux / Mac: incluido por defecto; Windows: usar Git Bash o WSL)
-
----
-
-## Inicio rápido
+## Quick Start
 
 ```bash
-# 1. Clonar este template (junto al core, en la misma carpeta padre)
-git clone https://github.com/aguisoft/vla-plugin-template.git my-plugin
-cd my-plugin
+# 1. Clonar y renombrar
+git clone <template-url> vla-plugin-mi-plugin
+cd vla-plugin-mi-plugin
+
+# 2. Instalar dependencias
 npm install
+cd frontend && npm install && cd ..
 
-# 2. Editar el manifiesto
-#    → cambia name, version, description, route, permissions
-nano plugin.json   # o abre en tu editor
+# 3. Editar plugin.json (nombre, descripción, permisos)
+# 4. Editar src/index.ts (rutas, hooks, lógica)
+# 5. Editar frontend/src/App.tsx (interfaz)
 
-# 3. Desarrollar con el core local
-#    Terminal A — core corriendo:
-#      cd ../vla-system && npm run dev -w @vla/api
-#
-#    Terminal B — compilar + instalar en el core:
-npm run dev          # compila y copia al core → luego reinicia el core
-npm run build:watch  # solo watch, sin instalar (útil mientras editas)
+# 6. Compilar y empaquetar
+npm run release
 
-# 4. Publicar en producción
-npm run release      # genera my-plugin-1.0.0.vla.zip
-# subir desde Admin → Módulos
+# 7. Subir en Admin → Modulos → Seleccionar .vla.zip
 ```
+
+> **Tip**: Usa el CLI `npx create-vla-plugin mi-plugin` para generar un proyecto con prompts interactivos.
 
 ---
 
 ## Estructura del proyecto
 
 ```
-my-vla-plugin/
-├── plugin.json          ← Manifiesto (identidad, permisos, hooks)
-├── src/
-│   └── index.ts         ← Punto de entrada del plugin
-├── dist/                ← Generado por tsc (NO editar manualmente)
-├── scripts/
-│   └── pack.js          ← Script de empaquetado
-├── vendor/
-│   └── plugin-sdk/      ← Tipos del SDK (no subir cambios aquí)
-├── package.json
-└── tsconfig.json
+my-plugin/
+  plugin.json              ← Manifiesto: nombre, permisos, settings, requires
+  src/index.ts             ← Backend: rutas, hooks, crons, lógica
+  frontend/
+    src/App.tsx            ← Frontend: React + Tailwind + PluginShell
+    src/vla/               ← UI Kit compartido (no editar)
+  migrations/
+    001_create_items.up.sql   ← SQL ejecutado al instalar
+    001_create_items.down.sql ← SQL ejecutado al desinstalar
+  vendor/plugin-sdk/       ← Tipos del SDK (no editar)
+  scripts/pack.js          ← Empaquetador .vla.zip
 ```
 
 ---
 
-## Configurar `plugin.json`
+## plugin.json — Manifiesto
 
-| Campo | Requerido | Descripción |
-|---|---|---|
-| `name` | ✓ | Identificador único en kebab-case. Ej: `"attendance-report"` |
-| `version` | ✓ | Versión semántica. Ej: `"1.0.0"` |
-| `description` | ✓ | Descripción corta visible en el panel admin |
-| `author` | ✓ | Nombre del autor o equipo |
-| `vlaMinVersion` | ✓ | Versión mínima del core requerida. Usar `"1.0.0"` |
-| `permissions` | ✓ | Array de permisos. Ver tabla abajo |
-| `route` | — | Ruta frontend. Ej: `"/dashboard/vacaciones"` |
-| `icon` | — | Nombre del ícono Lucide. Ej: `"calendar"`, `"users"` |
-| `adminOnly` | — | `true` = solo admins pueden ver este plugin |
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `name` | string | Identificador en kebab-case. Ej: `"my-plugin"` |
+| `version` | string | Semver. Ej: `"1.0.0"` |
+| `description` | string | Descripción corta (visible en Admin) |
+| `author` | string | Autor o equipo |
+| `vlaMinVersion` | string | Versión mínima del core requerida |
+| `route` | string? | Ruta frontend. Ej: `"/dashboard/my-plugin"` |
+| `icon` | string? | Icono Lucide. Ej: `"star"`, `"chart-bar"` |
+| `adminOnly` | boolean | Solo visible para admins |
+| `accessPermissions` | string[] | Permisos requeridos para ver el plugin en el sidebar |
+| `requires` | string[] | Integraciones del core requeridas. Valores: `["bitrix"]` |
+| `permissions` | string[] | Permisos de acceso a datos del core |
+| `settings` | object | Schema declarativo de configuración (ver abajo) |
+| `hooks` | object | Hooks que escucha y emite (documentación) |
 
-### Permisos disponibles
+### Settings (Configuración declarativa)
 
-Declara **solo los que necesitas** — el sistema no expondrá lo que no declares.
+Define campos en `settings` y el core genera automáticamente un formulario en Admin → Modulos → (gear):
 
-| Permiso | Acceso |
-|---|---|
-| `read:users` | `ctx.prisma.user.findMany/findUnique` |
-| `write:users` | `ctx.prisma.user.create/update/delete` |
-| `read:presence` | `ctx.prisma.presenceStatus.findMany` |
-| `write:presence` | `ctx.prisma.presenceStatus.update` |
-| `read:checkins` | `ctx.prisma.checkInRecord.findMany` |
-| `write:checkins` | `ctx.prisma.checkInRecord.create` |
+```json
+"settings": {
+  "sections": [{
+    "title": "API Externa",
+    "fields": [
+      { "key": "apiUrl",  "type": "url",     "label": "URL",    "required": true },
+      { "key": "apiKey",  "type": "secret",  "label": "API Key" },
+      { "key": "limit",   "type": "number",  "label": "Limite", "min": 1, "max": 100 },
+      { "key": "active",  "type": "boolean", "label": "Activo" },
+      { "key": "mode",    "type": "select",  "label": "Modo",   "options": [
+        { "value": "dev", "label": "Desarrollo" },
+        { "value": "prod", "label": "Produccion" }
+      ]}
+    ]
+  }]
+}
+```
+
+Tipos disponibles: `string`, `url`, `secret`, `text`, `number`, `boolean`, `select`.
+
+Los valores se leen en el plugin con `ctx.plugin.config.apiKey`.
 
 ---
 
-## API del plugin (`ctx`)
+## ctx — API del Plugin
 
-Dentro de `register(ctx)` tienes acceso a:
+El objeto `ctx` que recibe `register()` contiene todo lo que necesitas:
 
-### `ctx.router` — Rutas HTTP
+### Rutas HTTP
 
 ```typescript
-// Todas las rutas se montan en /api/v1/p/<name>/
-ctx.router.get('/reporte', ctx.requireAuth(), async (req, res) => {
+// Se montan en /api/v1/p/<plugin-name>/
+ctx.router.get('/data', ctx.requireAuth(), ctx.requirePermission('my.perm'), (req, res) => {
   res.json({ ok: true });
 });
-
-ctx.router.post('/crear', ctx.requireAuth('ADMIN'), async (req, res) => {
-  const data = req.body;
-  // ...
-  res.status(201).json(data);
-});
 ```
 
-### `ctx.requireAuth(role?)` — Middleware de autenticación
+### Base de datos (Prisma)
 
 ```typescript
-ctx.requireAuth()           // cualquier usuario con JWT válido
-ctx.requireAuth('ADMIN')    // solo administradores
-ctx.requireAuth('STAFF')    // solo staff
-ctx.requireAuth('PROFESSOR') // solo profesores
+const users = await ctx.prisma.user.findMany({ take: 10 });
 ```
 
-El usuario autenticado queda en `(req as any).user` con la forma `{ sub: string, role: string }`.
+### Base de datos propia (SQL)
 
-### `ctx.prisma` — Base de datos
+Cada plugin tiene un schema PostgreSQL aislado (`plugin_<name>`).
+Coloca SQL en `migrations/` y usa `ctx.query()`:
 
 ```typescript
-// Solo los modelos declarados en permissions estarán disponibles
-const users = await ctx.prisma.user.findMany({ take: 20 });
-const record = await ctx.prisma.checkInRecord.create({ data: { ... } });
+const items = await ctx.query<{ id: string; name: string }>('SELECT * FROM items');
+await ctx.query('INSERT INTO items (name) VALUES ($1)', ['ejemplo']);
 ```
 
-### `ctx.redis` — Cache (namespace automático)
+### Redis
 
 ```typescript
-// Las claves se almacenan como plugin:<name>:<key>
-await ctx.redis.set('clave', 'valor', 300);          // TTL 300s
-await ctx.redis.get('clave');                         // string | null
-await ctx.redis.setJson('objeto', { a: 1 }, 600);    // serializa a JSON
-await ctx.redis.getJson<MiTipo>('objeto');            // deserializa
-await ctx.redis.del('clave');
+await ctx.redis.set('key', 'value', 300);        // TTL 300s
+await ctx.redis.setJson('obj', { foo: 1 }, 600);
+const val = await ctx.redis.get('key');
+const obj = await ctx.redis.getJson<{ foo: number }>('obj');
 ```
 
-### `ctx.hooks` — Sistema de hooks
+### Hooks
 
 ```typescript
-// Escuchar un evento de otro plugin
+// Escuchar un hook
 ctx.hooks.registerAction('office.user.checked_in', async ({ userId }) => {
-  await notificar(userId);
+  ctx.logger.log(`User ${userId} checked in`);
 });
 
-// Emitir un evento
-await ctx.hooks.doAction('mi-plugin.algo.ocurrio', { datos: '...' });
+// Emitir un hook
+await ctx.hooks.doAction('my-plugin.item.created', { name: 'test' });
 
-// Filtros (transformar datos en cadena)
-ctx.hooks.registerFilter('core.user.serialize', async (user) => ({
-  ...user,
-  displayName: `${user.firstName} ${user.lastName}`,
+// Declarar un hook con documentacion (aparece en Admin → Hooks)
+ctx.hooks.declareHook('my-plugin.item.created', {
+  description: 'Se creo un item',
+  payload: { name: 'string', userId: 'string' },
+});
+
+// Filtro: transformar datos
+ctx.hooks.registerFilter('core.permissions.register', (map) => ({
+  ...map,
+  'my.perm': { label: 'Mi permiso', group: 'Mi Plugin', plugin: ctx.plugin.name },
 }));
 ```
 
-### Hooks del core disponibles
+### Hooks disponibles del core
 
 | Hook | Tipo | Payload |
-|---|---|---|
-| `core.user.created` | Action | `{ user }` |
-| `core.user.updated` | Action | `{ userId, changes }` |
-| `core.user.serialize` | Filter | objeto `user` |
-| `core.auth.login` | Action | `{ user, token }` |
-| `core.plugin.activated` | Action | `{ pluginName }` |
-| `core.plugin.deactivated` | Action | `{ pluginName }` |
+|------|------|---------|
+| `core.user.created` | action | `{ user }` |
+| `core.user.updated` | action | `{ userId, changes }` |
+| `core.auth.login` | action | `{ user, token }` |
+| `core.plugin.activated` | action | `{ pluginName }` |
+| `core.plugin.deactivated` | action | `{ pluginName }` |
+| `core.permissions.register` | filter | `Record<string, { label, group, plugin? }>` |
+| `core.roles.preset` | filter | `Array<{ name, permissions[], color?, plugin }>` |
+| `office.user.checked_in` | action | `{ userId, source }` |
+| `office.user.checked_out` | action | `{ userId }` |
+| `office.user.status_changed` | action | `{ userId, status }` |
 
-### Hooks del plugin Office disponibles
-
-| Hook | Tipo | Payload |
-|---|---|---|
-| `office.user.checked_in` | Action | `{ userId, user, source }` |
-| `office.user.checked_out` | Action | `{ userId }` |
-| `office.user.status_changed` | Action | `{ userId, status }` |
-| `office.user.moved` | Action | `{ userId, zoneId, positionX, positionY }` |
-
-### `ctx.cron(expression, handler)` — Tareas programadas
+### Cron
 
 ```typescript
-// Lunes a viernes a las 9:00 AM UTC
-ctx.cron('0 9 * * 1-5', async () => {
-  ctx.logger.log('Ejecutando reporte diario...');
+ctx.cron('*/5 * * * *', async () => {
+  ctx.logger.log('Cada 5 minutos');
 });
-
-// Cada hora
-ctx.cron('0 * * * *', async () => { /* ... */ });
 ```
 
-### `ctx.logger` — Logs
+### Bitrix24
+
+Requiere `"requires": ["bitrix"]` en plugin.json:
 
 ```typescript
-ctx.logger.log('Mensaje informativo');
+const users = await ctx.bitrix!.callAll('user.get', { FILTER: { ACTIVE: true } });
+const lead = await ctx.bitrix!.call('crm.lead.get', { id: 123 });
+const raw = await ctx.bitrix!.callRaw('crm.deal.list', { filter: {} }); // { result, next, total }
+```
+
+### Logger
+
+```typescript
+ctx.logger.log('Info');
 ctx.logger.warn('Advertencia');
-ctx.logger.error('Error grave');
-ctx.logger.debug('Debug (solo en modo desarrollo)');
-// Aparece en los logs del servidor como: [mi-plugin] Mensaje informativo
+ctx.logger.error('Error');
 ```
 
-### `ctx.plugin` — Metadata
+### Config
 
 ```typescript
-ctx.plugin.name     // "mi-plugin"
-ctx.plugin.version  // "1.0.0"
-ctx.plugin.config   // configuración almacenada en BD por el admin
+const apiKey = ctx.plugin.config.apiKey as string;
 ```
 
 ---
 
-## Ciclo de vida
+## Migrations — Base de datos propia
 
-| Método | Cuándo se llama |
-|---|---|
-| `register(ctx)` | En cada arranque del servidor |
-| `onInstall()` | Solo la primera vez que se instala |
-| `onDeactivate()` | Al desactivar desde el panel admin |
-
----
-
-## Flujo de desarrollo
+Coloca archivos SQL en `migrations/`:
 
 ```
-editar src/index.ts
-       │
-       ▼
-npm run build        # compila TypeScript → dist/
-       │
-       ▼
-npm run pack         # crea my-plugin-1.0.0.vla.zip
-       │
-       ▼
-Admin → Módulos → Subir .vla.zip
-       │
-       ▼
-servidor reinicia y carga el plugin
-       │
-       ▼
-probar en http://localhost:3001/api/v1/p/my-plugin/
+migrations/
+  001_create_items.up.sql     ← CREATE TABLE ...
+  001_create_items.down.sql   ← DROP TABLE ...
+  002_add_index.up.sql
+  002_add_index.down.sql
 ```
 
-Para iterar rápido en **desarrollo local** (con acceso al servidor):
-1. Copia manualmente el zip a `storage/plugins/` y extrae allí
-2. Reinicia el servidor con `npm run dev -w @vla/api`
+- Se ejecutan **automaticamente** al instalar/actualizar el plugin
+- Cada plugin tiene su propio schema PostgreSQL (`plugin_<name>`)
+- El `search_path` se configura automaticamente
+- Se hace rollback al desinstalar
 
 ---
 
-## Subir una nueva versión
+## Frontend — PluginShell
 
-1. Incrementa `version` en `plugin.json` y en `package.json`
-2. `npm run release`
-3. Sube el nuevo zip desde el panel admin
-4. El servidor reinicia y carga la versión actualizada
+Todos los plugins usan `PluginShell` del kit compartido (`frontend/src/vla/`):
+
+```tsx
+import { usePluginAuth, PluginShell, PluginLoading } from './vla';
+
+export default function App() {
+  const { user, loading, isAdmin } = usePluginAuth();
+  if (loading || !user) return <PluginLoading />;
+
+  return (
+    <PluginShell
+      title="Mi Plugin"
+      subtitle="Descripcion"
+      headerActions={<button>Accion</button>}
+      user={user}
+    >
+      <div className="p-6">Contenido aqui</div>
+    </PluginShell>
+  );
+}
+```
+
+Props de PluginShell:
+
+| Prop | Tipo | Descripcion |
+|------|------|-------------|
+| `title` | string | Titulo en el header |
+| `subtitle` | string? | Subtitulo |
+| `headerCenter` | ReactNode? | Contenido central (tabs, filtros) |
+| `headerActions` | ReactNode? | Botones/controles a la derecha |
+| `user` | PluginUser | Usuario autenticado |
 
 ---
 
-## Preguntas frecuentes
+## Scripts
 
-**¿Puedo usar librerías npm en mi plugin?**
-Sí. Instálalas con `npm install` y asegúrate de compilarlas en el bundle. Para plugins simples, usa `tsc` directamente (las deps de `node_modules` se incluirán al hacer `require`). Si tu plugin tiene muchas deps, considera usar `esbuild` o `webpack` para generar un bundle single-file.
+| Comando | Descripcion |
+|---------|-------------|
+| `npm run build` | Compila backend (tsc) |
+| `npm run build:frontend` | Compila frontend (vite) |
+| `npm run pack` | Empaqueta .vla.zip |
+| `npm run release` | build + build:frontend + pack |
+| `npm run dev` | Build + instala en servidor local |
 
-**¿Puede mi plugin añadir páginas al frontend?**
-Por ahora la página frontend se añade manualmente en el repo principal de VLA (`apps/web/src/app/dashboard/<ruta>/`). El plugin registra su `route` en el manifiesto para que aparezca en la navegación.
+---
 
-**¿Puede mi plugin añadir modelos a la base de datos?**
-No directamente. Los modelos DB son gestionados por el core con Prisma. Si necesitas persistencia propia, usa Redis (`ctx.redis`) o pide al equipo de VLA añadir un modelo al schema.
+## Lifecycle
+
+| Metodo | Cuando se llama |
+|--------|-----------------|
+| `register(ctx)` | Al iniciar el servidor (siempre) |
+| `onInstall()` | Primera vez que se instala |
+| `onActivate()` | Cada vez que se activa desde Admin |
+| `onDeactivate()` | Cada vez que se desactiva desde Admin |
+
+---
+
+## FAQ
+
+**Como agrego dependencias npm?**
+`npm install mi-paquete` en la raiz del plugin. Se incluyen en `dist/` via bundling.
+
+**Como accedo a la BD del core?**
+Usa `ctx.prisma` (Prisma Client). Ejemplo: `ctx.prisma.user.findMany()`.
+
+**Como creo tablas propias?**
+Agrega SQL en `migrations/` y usa `ctx.query()` para consultar.
+
+**Como integro con Bitrix24?**
+Agrega `"bitrix"` al array `requires` de plugin.json y usa `ctx.bitrix!`.
+
+**Como configuro el plugin sin codigo?**
+Define `settings` en plugin.json con campos declarativos. El formulario se genera automaticamente.
